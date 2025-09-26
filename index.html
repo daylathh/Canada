@@ -87,7 +87,7 @@
     </main>
 
     <footer class="bg-gray-800 text-white text-center p-6 mt-8">
-        <p>&copy; 2025 Album Ảnh Của Bạn. Tạo bởi Gemini.</p>
+        <p>&copy; 2025 Trần Huy Hùng</p>
     </footer>
 
     <!-- PHẦN 5: LIGHTBOX NÂNG CẤP VỚI TÍNH NĂNG BÌNH LUẬN -->
@@ -143,11 +143,15 @@
         let unsubscribeComments = null;
 
         async function initializeFirebase() {
+            // SỬA LỖI: Kiểm tra xem biến cấu hình có tồn tại không.
+            if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                console.log("Không tìm thấy cấu hình Firebase. Tính năng bình luận sẽ bị tắt.");
+                if (commentSection) commentSection.style.display = 'none'; // Ẩn hoàn toàn khu vực bình luận
+                firebaseReady = false;
+                return; // Dừng hàm tại đây
+            }
+
             try {
-                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
-                    throw new Error("Biến cấu hình Firebase (__firebase_config) không được cung cấp.");
-                }
-                
                 const firebaseConfig = JSON.parse(__firebase_config);
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -165,16 +169,8 @@
             } catch (error) {
                 console.error("Lỗi khởi tạo Firebase:", error);
                 firebaseReady = false;
-                
-                let userMessage = 'Lỗi: Không thể tải hệ thống bình luận.';
-                if (error.message && error.message.includes('auth/invalid-api-key')) {
-                    userMessage = 'Lỗi: Cấu hình API Key cho Firebase không hợp lệ. Tính năng bình luận đã bị tắt.';
-                } else if (error.message.includes("JSON")) {
-                    userMessage = 'Lỗi: Dữ liệu cấu hình Firebase không đúng định dạng. Tính năng bình luận đã bị tắt.';
-                }
-                
                 if(commentSection) {
-                    commentSection.innerHTML = `<p class="text-red-500 italic p-4 text-center">${userMessage}</p>`;
+                     commentSection.innerHTML = `<p class="text-red-500 italic p-4 text-center">Lỗi: Không thể tải hệ thống bình luận do cấu hình sai.</p>`;
                 }
             }
         }
@@ -233,6 +229,9 @@
                     `;
                     commentDisplay.appendChild(commentEl);
                 });
+            }, (error) => {
+                console.error("Lỗi khi tải bình luận:", error);
+                commentDisplay.innerHTML = '<p class="text-red-500">Lỗi: Không thể tải bình luận.</p>';
             });
         }
 
@@ -314,7 +313,7 @@
         commentForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (!firebaseReady) {
-                alert("Tính năng bình luận hiện không khả dụng do lỗi cấu hình.");
+                alert("Tính năng bình luận hiện không khả dụng.");
                 return;
             }
             const nameInput = document.getElementById('comment-name');
