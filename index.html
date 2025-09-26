@@ -87,7 +87,7 @@
     </main>
 
     <footer class="bg-gray-800 text-white text-center p-6 mt-8">
-        <p>&copy; 2025 Trần Huy Hùng</p>
+        <p>&copy; 2025 Album Ảnh Của Bạn. Tạo bởi Gemini.</p>
     </footer>
 
     <!-- PHẦN 5: LIGHTBOX NÂNG CẤP VỚI TÍNH NĂNG BÌNH LUẬN -->
@@ -144,23 +144,38 @@
 
         async function initializeFirebase() {
             try {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-                const firebaseConfig = JSON.parse(firebaseConfigStr);
-
-                if (firebaseConfig.apiKey) {
-                    const app = initializeApp(firebaseConfig);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                    await setupAuth();
-                    firebaseReady = true;
-                } else {
-                    throw new Error("Firebase config không hợp lệ.");
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    throw new Error("Biến cấu hình Firebase (__firebase_config) không được cung cấp.");
                 }
+                
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                if (!firebaseConfig.apiKey) {
+                    throw new Error("Cấu hình Firebase không hợp lệ hoặc thiếu API Key.");
+                }
+
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                await setupAuth();
+                firebaseReady = true;
+                console.log("Firebase đã khởi tạo thành công!");
+
             } catch (error) {
-                console.error("Lỗi khởi tạo Firebase, tính năng bình luận đã bị tắt:", error);
+                console.error("Lỗi khởi tạo Firebase:", error);
                 firebaseReady = false;
-                if(commentSection) commentSection.innerHTML = '<p class="text-red-500 italic">Lỗi: Không thể tải hệ thống bình luận.</p>';
+                
+                let userMessage = 'Lỗi: Không thể tải hệ thống bình luận.';
+                if (error.message && error.message.includes('auth/invalid-api-key')) {
+                    userMessage = 'Lỗi: Cấu hình API Key cho Firebase không hợp lệ. Tính năng bình luận đã bị tắt.';
+                } else if (error.message.includes("JSON")) {
+                    userMessage = 'Lỗi: Dữ liệu cấu hình Firebase không đúng định dạng. Tính năng bình luận đã bị tắt.';
+                }
+                
+                if(commentSection) {
+                    commentSection.innerHTML = `<p class="text-red-500 italic p-4 text-center">${userMessage}</p>`;
+                }
             }
         }
 
@@ -173,7 +188,7 @@
                 }
             } catch (error) {
                 console.error("Lỗi xác thực Firebase:", error);
-                firebaseReady = false; // Đặt lại cờ nếu xác thực thất bại
+                firebaseReady = false;
             }
         }
 
@@ -181,7 +196,9 @@
             currentImageId = imageId;
             lightboxImage.src = imageUrl;
             lightbox.classList.remove('hidden');
-            loadComments(imageId);
+            if (firebaseReady) {
+                loadComments(imageId);
+            }
         }
 
         function closeLightbox() {
@@ -193,6 +210,7 @@
 
         function loadComments(imageId) {
             if (!firebaseReady) return;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const commentsCollection = collection(db, `/artifacts/${appId}/public/data/comments`);
             const q = query(commentsCollection, where("imageId", "==", imageId));
 
@@ -220,6 +238,7 @@
 
         async function addComment(imageId, name, text) {
             if (!firebaseReady) return;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             try {
                 const commentsCollection = collection(db, `/artifacts/${appId}/public/data/comments`);
                 await addDoc(commentsCollection, { imageId, name, text, timestamp: serverTimestamp() });
@@ -295,21 +314,20 @@
         commentForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (!firebaseReady) {
-                alert("Tính năng bình luận hiện không khả dụng.");
+                alert("Tính năng bình luận hiện không khả dụng do lỗi cấu hình.");
                 return;
             }
             const nameInput = document.getElementById('comment-name');
             const textInput = document.getElementById('comment-text');
             if (currentImageId && nameInput.value && textInput.value) {
                 addComment(currentImageId, nameInput.value, textInput.value);
-                // Giữ lại tên cho bình luận tiếp theo
                 textInput.value = '';
             }
         });
         
         // --- CHẠY ỨNG DỤNG ---
-        await initializeFirebase(); // Khởi tạo Firebase trước
-        await fetchImages(); // Sau đó tải ảnh
+        await initializeFirebase();
+        await fetchImages();
     </script>
 </body>
 </html>
